@@ -1,5 +1,6 @@
 import cv2
 import mediapipe as mp
+import pyautogui
 
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(min_detection_confidence=0.7, min_tracking_confidence=0.7)
@@ -12,12 +13,13 @@ while cap.isOpened():
     if not ret:
         break
         
-    # Frame spiegeln für intuitivere Bewegung (optional)
     frame = cv2.flip(frame, 1)
     h, w, c = frame.shape
     
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     result = hands.process(rgb_frame)
+
+    screen_width, screen_height = pyautogui.size()
     
     if result.multi_hand_landmarks:
         for hand_landmarks in result.multi_hand_landmarks:
@@ -52,10 +54,13 @@ while cap.isOpened():
             # Logik für Textausgabe kombinieren
             elif distance_pinch < 0.05:
                 label = 'Pinch (Thumb + Index)'
+                pyautogui.click()
             elif distance_middle < 0.05:
                 label = 'Klick (Thumb + Middle)'
+                
             elif is_index_open:
                 label = 'Index Finger stretched'
+                pyautogui.moveTo(int(index_tip.x * screen_width), int(index_tip.y * screen_height), duration=0.1)
             else:
                 label = 'Closed Hand'
                 
