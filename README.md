@@ -144,4 +144,4 @@ Bug reports and focused improvements are welcome. Do not include API credentials
 
 ## License
 
-No license is currently specified. Until a license is added, do not assume that reuse, redistribution, or contributions are covered by an open-source license.
+This project is under MIT-License.
