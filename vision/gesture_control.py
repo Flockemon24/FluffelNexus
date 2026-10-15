@@ -1,90 +1,52 @@
+"""Webcam hand gesture control."""
+import time
 import cv2
 import mediapipe as mp
 import pyautogui
-import time
 
-mp_hands = mp.solutions.hands
-hands = mp_hands.Hands(min_detection_confidence=0.7, min_tracking_confidence=0.7)
-mp_drawing = mp.solutions.drawing_utils
+def main():
+    camera = cv2.VideoCapture(0)
+    if not camera.isOpened():
+        print("Could not open webcam. Check camera permissions and other applications.")
+        camera.release()
+        return
+    screen_w, screen_h = pyautogui.size()
+    hands_api, drawing = mp.solutions.hands, mp.solutions.drawing_utils
+    last_scroll, was_pinch, was_middle = 0.0, False, False
+    try:
+        with hands_api.Hands(max_num_hands=1,min_detection_confidence=0.7,min_tracking_confidence=0.7) as hands:
+            while True:
+                ok, frame = camera.read()
+                if not ok: print("Could not read webcam frame."); break
+                frame = cv2.flip(frame,1)
+                result = hands.process(cv2.cvtColor(frame,cv2.COLOR_BGR2RGB))
+                label, pinch, middle_pinch = "No hand detected", False, False
+                if result.multi_hand_landmarks:
+                    hand = result.multi_hand_landmarks[0]; drawing.draw_landmarks(frame,hand,hands_api.HAND_CONNECTIONS); p=hand.landmark
+                    t,i,m,r,pk = p[4],p[8],p[12],p[16],p[20]; ip,mpip,rp,pp=p[6],p[10],p[14],p[18]
+                    dist=lambda a,b: ((a.x-b.x)**2+(a.y-b.y)**2)**0.5
+                    io,mo,ro,po = i.y<ip.y,m.y<mpip.y,r.y<rp.y,pk.y<pp.y
+                    pinch,middle_pinch = dist(t,i)<0.045,dist(t,m)<0.045
+                    if pinch:
+                        label="Pinch: click"
+                        if not was_pinch: pyautogui.click()
+                    elif middle_pinch:
+                        label="Thumb + middle: double click"
+                        if not was_middle: pyautogui.doubleClick()
+                    elif io and not mo and not ro and not po:
+                        label="Point: move pointer"; margin=0.08
+                        x=min(max((i.x-margin)/(1-2*margin),0),1); y=min(max((i.y-margin)/(1-2*margin),0),1)
+                        pyautogui.moveTo(int(x*screen_w),int(y*screen_h),duration=0.03)
+                    elif i.y>ip.y and not mo and not ro and not po:
+                        label="Point down: scroll"; now=time.monotonic()
+                        if now-last_scroll>=0.25: pyautogui.scroll(-3); last_scroll=now
+                    elif io and mo and ro and po: label="Open hand"
+                    else: label="Hand detected"
+                was_pinch,was_middle=pinch,middle_pinch
+                cv2.putText(frame,label,(15,35),cv2.FONT_HERSHEY_SIMPLEX,0.7,(0,255,0),2)
+                cv2.imshow("FluffelNexus Gesture Control - press Q to quit",frame)
+                if cv2.waitKey(1)&0xFF in (ord("q"),ord("Q")): break
+    except Exception as exc: print(f"Gesture control stopped: {exc}")
+    finally: camera.release(); cv2.destroyAllWindows()
 
-cap = cv2.VideoCapture(0)
-
-while cap.isOpened():
-    ret, frame = cap.read()
-    if not ret:
-        break
-        
-    frame = cv2.flip(frame, 1)
-    h, w, c = frame.shape
-    
-    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    result = hands.process(rgb_frame)
-
-    screen_width, screen_height = pyautogui.size()
-    
-    if result.multi_hand_landmarks:
-        for hand_landmarks in result.multi_hand_landmarks:
-            mp_drawing.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
-            
-            thumb_tip = hand_landmarks.landmark[4]
-            index_tip = hand_landmarks.landmark[8]
-            index_pip = hand_landmarks.landmark[6] 
-            middle_tip = hand_landmarks.landmark[12]
-            middle_pip = hand_landmarks.landmark[10]
-            ring_tip = hand_landmarks.landmark[16]
-            ring_pip = hand_landmarks.landmark[14]
-            pinky_tip = hand_landmarks.landmark[20]
-            pinky_pip = hand_landmarks.landmark[18]
-
-            # --- Pinch (Thumb + Index Finger) ---
-            distance_pinch = ((thumb_tip.x - index_tip.x) ** 2 + (thumb_tip.y - index_tip.y) ** 2) ** 0.5
-
-            # --- Index pointing down ---
-            index_pointing_down = index_tip.y > index_pip.y
-
-            # --- Distance from Thumb to middle finger ---
-            distance_middle = ((thumb_tip.x - middle_tip.x) ** 2 + (thumb_tip.y - middle_tip.y) ** 2) ** 0.5
-
-            # --- Open hand ---
-            is_middle_open = middle_tip.y < middle_pip.y
-            is_ring_open = ring_tip.y < ring_pip.y
-            is_pinky_open = pinky_tip.y < pinky_pip.y
-            is_index_open = index_tip.y < index_pip.y
-
-            # --- Closed hand ---
-            index_closed = index_tip.y > index_pip.y
-            middle_closed = middle_tip.y > middle_pip.y
-            ring_closed = ring_tip.y > ring_pip.y
-            pinky_closed = pinky_tip.y > pinky_pip.y
-
-
-            if is_index_open and is_middle_open and is_ring_open and is_pinky_open:
-                label = 'Open Hand'
-            # Logik für Textausgabe kombinieren
-            elif distance_pinch < 0.05:
-                label = 'Pinch (Thumb + Index)'
-                pyautogui.click()
-                time.sleep(0.5)
-            elif distance_middle < 0.05:
-                label = 'Klick (Thumb + Middle)'
-                pyautogui.click()
-                pyautogui.click()
-                time.sleep(1)
-            elif is_index_open and middle_closed and ring_closed and pinky_closed:
-                label = 'Index Finger stretched'
-                pyautogui.moveTo(int(index_tip.x * screen_width), int(index_tip.y * screen_height), duration=0.15)
-            elif index_pointing_down:
-                label = 'Scralling down'
-                pyautogui.scroll(-50)
-                time.sleep(0.025)
-            else:
-                label = 'Closed Hand'
-                
-            cv2.putText(frame, label, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-            
-    #cv2.imshow('Gesture Recognition', frame)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
-
-cap.release()
-cv2.destroyAllWindows()
+if __name__=="__main__": main()
