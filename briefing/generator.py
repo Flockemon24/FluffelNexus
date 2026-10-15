@@ -24,7 +24,8 @@ def generate_message(city="Berlin", language="de", sources="tagesschau.de", unit
     if articles:
         for article in articles:
             source = (article.get("source") or {}).get("name")
-            message.extend([f"• [{'{}] '.format(source) if source else ''}{article.get('title', 'Untitled article')}", article.get("url", ""), ""])
+            prefix = f"[{source}] " if source else ""
+            message.extend([f"• {prefix}{article.get('title', 'Untitled article')}", article.get("url", ""), ""])
     else:
         message.append("No news articles are available right now.")
     return "\n".join(message).strip()[:4000]
