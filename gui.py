@@ -1,223 +1,104 @@
-import sys
-import subprocess
-import sqlite3
-
+"""PyQt6 desktop interface."""
+from pathlib import Path
+import subprocess, sys
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import (
-    QApplication,
-    QComboBox,
-    QLabel,
-    QLineEdit,
-    QMainWindow,
-    QPushButton,
-    QVBoxLayout,
-    QWidget,
-    QListWidget,
-    QListWidgetItem,
-    QSpacerItem,
-    QSizePolicy
-)
+from PyQt6.QtWidgets import QApplication, QComboBox, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow, QPushButton, QVBoxLayout, QWidget
+from database import load_settings, save_settings
 
+BASE = Path(__file__).resolve().parent
+SOURCES = ["spiegel.de","tagesschau.de","zeit.de","welt.de","faz.net","sueddeutsche.de","focus.de","nytimes.com","washingtonpost.com","wsj.com","apnews.com","reuters.com","cnn.com","npr.org"]
 
 class MainWindow(QMainWindow):
-
     def __init__(self):
         super().__init__()
-
         self.setWindowTitle("FluffelNexus")
-        
-        # WINDOWSIZE
-        self.setFixedSize(350, 550)
+        self.resize(390, 720)
+        self.setMinimumSize(350, 600)
+        self.gesture_process = self.scheduler_process = None
+        self.saved_settings = None
+        central = QWidget(); self.setCentralWidget(central); layout = QVBoxLayout(central)
+        self.gesture_button = QPushButton("Start Gesture Control"); self.gesture_button.clicked.connect(self.toggle_gesture); layout.addWidget(self.gesture_button)
+        self.settings_toggle = QPushButton("⚙️ Show Settings"); self.settings_toggle.setCheckable(True); self.settings_toggle.toggled.connect(self.toggle_settings); layout.addWidget(self.settings_toggle)
+        self.settings = QWidget(); form = QVBoxLayout(self.settings)
+        form.addWidget(QLabel("Name:")); self.name_input = QLineEdit(); form.addWidget(self.name_input)
+        form.addWidget(QLabel("City:")); self.city_input = QLineEdit(); form.addWidget(self.city_input)
+        form.addWidget(QLabel("Daily briefing time:")); self.time_box = QComboBox(); self.time_box.addItems(["06:30","07:00","07:30","08:00","18:38"]); form.addWidget(self.time_box)
+        form.addWidget(QLabel("News language:")); self.language_box = QComboBox(); self.language_box.addItem("Deutsch","de"); self.language_box.addItem("English","en"); form.addWidget(self.language_box)
+        form.addWidget(QLabel("Weather units:")); self.units_box = QComboBox(); self.units_box.addItem("Metric (°C)","metric"); self.units_box.addItem("Imperial (°F)","imperial"); self.units_box.addItem("Standard (K)","standard"); form.addWidget(self.units_box)
+        form.addWidget(QLabel("News sources:")); self.sources = QListWidget(); self.sources.setMaximumHeight(130)
+        for source in SOURCES:
+            item = QListWidgetItem(source); item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled); item.setCheckState(Qt.CheckState.Unchecked); self.sources.addItem(item)
+        form.addWidget(self.sources); save = QPushButton("Save Settings"); save.clicked.connect(self.save); form.addWidget(save)
+        self.settings.hide(); layout.addWidget(self.settings)
+        self.scheduler_button = QPushButton("Start Daily Briefing Scheduler"); self.scheduler_button.setEnabled(False); self.scheduler_button.clicked.connect(self.toggle_scheduler); layout.addWidget(self.scheduler_button)
+        self.status = QLabel("Ready. Save settings to configure the briefing."); self.status.setWordWrap(True); layout.addWidget(self.status); layout.addStretch(1)
+        self.load_saved()
 
-        self.gesture_control = False
-        self.process = None
+    def toggle_settings(self, visible):
+        self.settings.setVisible(visible); self.settings_toggle.setText("⚙️ Hide Settings" if visible else "⚙️ Show Settings")
 
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        main_layout = QVBoxLayout(central_widget)
+    def load_saved(self):
+        try: s = load_settings()
+        except Exception as e: self.status.setText(f"Could not load settings: {e}"); return
+        if not s: return
+        self.saved_settings = s; self.name_input.setText(s.get("name","")); self.city_input.setText(s.get("city",""))
+        self.time_box.setCurrentText(s.get("briefing_time","07:00"))
+        i = self.language_box.findData(s.get("lang_code","de"))
+        if i >= 0: self.language_box.setCurrentIndex(i)
+        i = self.units_box.findData(s.get("weather_units","metric"))
+        if i >= 0: self.units_box.setCurrentIndex(i)
+        selected = set(s.get("news_sources","").split(","))
+        for i in range(self.sources.count()):
+            item = self.sources.item(i); item.setCheckState(Qt.CheckState.Checked if item.text() in selected else Qt.CheckState.Unchecked)
+        self.scheduler_button.setEnabled(True); self.status.setText("Saved settings loaded.")
 
-        # 1. GESTURE CONTROL BUTTON
-        self.gesture_button = QPushButton("Start Gesture Control")
-        self.gesture_button.clicked.connect(self.on_button_clicked)
-        main_layout.addWidget(self.gesture_button, alignment=Qt.AlignmentFlag.AlignCenter)
+    def save(self):
+        name, city = self.name_input.text().strip(), self.city_input.text().strip()
+        selected = [self.sources.item(i).text() for i in range(self.sources.count()) if self.sources.item(i).checkState() == Qt.CheckState.Checked]
+        if not name or not city: self.status.setText("Enter a name and city."); return
+        if not selected: self.status.setText("Select at least one news source."); return
+        s = {"name":name,"city":city,"briefing_time":self.time_box.currentText(),"language":self.language_box.currentText(),"lang_code":self.language_box.currentData(),"news_sources":",".join(selected),"weather_units":self.units_box.currentData()}
+        try: save_settings(s)
+        except Exception as e: self.status.setText(f"Could not save settings: {e}"); return
+        if self.scheduler_process and self.scheduler_process.poll() is None: self.stop_scheduler()
+        self.saved_settings = s; self.scheduler_button.setEnabled(True); self.status.setText("Settings saved.")
 
-        # 2. BUTTON TO HIDE/SHOW SETTINGS
-        self.settings_toggle_button = QPushButton("⚙️ Show Settings")
-        self.settings_toggle_button.setCheckable(True)
-        self.settings_toggle_button.setChecked(False)
-        self.settings_toggle_button.clicked.connect(self.toggle_settings)
-        main_layout.addWidget(self.settings_toggle_button, alignment=Qt.AlignmentFlag.AlignCenter)
+    def toggle_gesture(self):
+        if self.gesture_process and self.gesture_process.poll() is None: self.stop_gesture(); return
+        try:
+            self.gesture_process = subprocess.Popen([sys.executable,str(BASE/"vision"/"gesture_control.py")],cwd=BASE)
+            self.gesture_button.setText("Stop Gesture Control"); self.status.setText("Gesture control running. Press Q in the preview to exit.")
+        except OSError as e: self.status.setText(f"Could not start gesture control: {e}")
 
-        # 3. CONTAINER FOR SETTINGS
-        self.settings_container = QWidget()
-        settings_layout = QVBoxLayout(self.settings_container)
-        settings_layout.setContentsMargins(0, 10, 0, 10)
+    @staticmethod
+    def stop_process(process):
+        if not process or process.poll() is not None: return
+        process.terminate()
+        try: process.wait(timeout=3)
+        except subprocess.TimeoutExpired: process.kill(); process.wait(timeout=3)
 
-        settings_layout.addWidget(QLabel("Input Name:"))
-        self.name_input = QLineEdit()
-        self.name_input.setPlaceholderText("e. g. John Doe")
-        settings_layout.addWidget(self.name_input)
+    def stop_gesture(self):
+        self.stop_process(self.gesture_process); self.gesture_process = None; self.gesture_button.setText("Start Gesture Control")
 
-        settings_layout.addWidget(QLabel("Input City:"))
-        self.city_input = QLineEdit()
-        self.city_input.setPlaceholderText("e. g. Berlin")
-        settings_layout.addWidget(self.city_input)
+    def toggle_scheduler(self):
+        if self.scheduler_process and self.scheduler_process.poll() is None: self.stop_scheduler(); return
+        if not self.saved_settings: self.status.setText("Save settings first."); return
+        s = self.saved_settings
+        args = [sys.executable,str(BASE/"briefing_scheduler.py"),s["briefing_time"],s["city"],s["lang_code"],s["news_sources"],s["weather_units"]]
+        try:
+            self.scheduler_process = subprocess.Popen(args,cwd=BASE)
+            self.scheduler_button.setText("Stop Daily Briefing Scheduler"); self.status.setText(f"Scheduled daily for {s['briefing_time']}.")
+        except OSError as e: self.status.setText(f"Could not start scheduler: {e}")
 
-        settings_layout.addWidget(QLabel("Select Morning Briefing Time:"))
-        self.briefing_time_selector = QComboBox()
-        self.briefing_time_selector.addItems(["06:30", "07:00", "07:30", "08:00", "18:38"])
-        settings_layout.addWidget(self.briefing_time_selector)
+    def stop_scheduler(self):
+        self.stop_process(self.scheduler_process); self.scheduler_process = None; self.scheduler_button.setText("Start Daily Briefing Scheduler")
 
-        settings_layout.addWidget(QLabel("Select News Language:"))
-        self.language_selector = QComboBox()
-        self.language_selector.addItems(["Deutsch", "English"])
-        settings_layout.addWidget(self.language_selector)
-
-        settings_layout.addWidget(QLabel("Select Weather Units:"))
-        self.weather_units_selector = QComboBox()
-        self.weather_units_selector.addItems(["Metric", "Imperial"])
-        settings_layout.addWidget(self.weather_units_selector)
-
-        settings_layout.addWidget(QLabel("Select News Sources:"))
-        self.news_sources_selector = QListWidget()
-        self.news_sources_selector.setMaximumHeight(100) 
-        sources = [
-            "spiegel.de", "tagesschau.de", "zeit.de", "welt.de", "faz.net",
-            "sueddeutsche.de", "focus.de", "nytimes.com", "washingtonpost.com",
-            "wsj.com", "apnews.com", "reuters.com", "cnn.com", "npr.org"
-        ]
-        for source in sources:
-            item = QListWidgetItem(source)
-            item.setFlags(
-                item.flags()
-                | Qt.ItemFlag.ItemIsUserCheckable
-                | Qt.ItemFlag.ItemIsEnabled
-            )
-            item.setCheckState(Qt.CheckState.Unchecked)
-            self.news_sources_selector.addItem(item)
-        settings_layout.addWidget(self.news_sources_selector)
-
-        self.save_button = QPushButton("Save Settings")
-        self.save_button.clicked.connect(self.on_save_settings_clicked)
-        settings_layout.addWidget(self.save_button, alignment=Qt.AlignmentFlag.AlignCenter)
-
-        self.settings_container.setVisible(False)
-        main_layout.addWidget(self.settings_container)
-
-        self.briefing_button = QPushButton("Start daily Briefing Shudeler")
-        self.briefing_button.setEnabled(False)
-        self.briefing_button.setChecked(False)
-        self.briefing_button.clicked.connect(self.start_briefing)
-        main_layout.addWidget(self.briefing_button, alignment=Qt.AlignmentFlag.AlignCenter)
-
-        main_layout.addStretch
-
-    def toggle_settings(self, checked):
-        if checked:
-            self.settings_container.setVisible(True)
-            self.settings_toggle_button.setText("⚙️ Hide Settings")
-        else:
-            self.settings_container.setVisible(False)
-            self.settings_toggle_button.setText("⚙️ Show Settings")
-
-    def on_button_clicked(self):
-        if not self.gesture_control:
-            self.process = subprocess.Popen([sys.executable, "vision/gesture_control.py"])
-            self.gesture_button.setText("Gesture Control running...\nClick to stop")
-            self.gesture_control = True
-        else:
-            self.process.terminate()
-            self.process.wait()
-            self.gesture_button.setText("Start Gesture Control")
-            self.gesture_control = False
-
-    def on_save_settings_clicked(self):
-        self.name = self.name_input.text()
-        self.city = self.city_input.text()
-        self.language = self.language_selector.currentText()
-        if self.language == "Deutsch":
-            self.lang_code = "de"
-        elif self.language == "English":    
-            self.lang_code = "en"
-        self.weather_units = self.weather_units_selector.currentText()
-        self.briefing_time = self.briefing_time_selector.currentText()
-        
-
-        selected_sources = []
-        for index in range(self.news_sources_selector.count()):
-            item = self.news_sources_selector.item(index)
-            if item.checkState() == Qt.CheckState.Checked:
-                selected_sources.append(item.text())
-
-        self.news_sources = ",".join(selected_sources)
-
-        print(f"Name: {self.name}")
-        print(f"City: {self.city}")
-        print(f"Language: {self.language}")
-        print(f"Language Code: {self.lang_code}")
-        print(f"Briefing Time: {self.briefing_time}")
-        print(f"Weather Units: {self.weather_units}")
-        print(f"Selected News Sources: {', '.join(selected_sources)}")
-
-        with sqlite3.connect("db.db") as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                INSERT OR REPLACE INTO user (name, city, briefing_time, language, lang_code, news_sources, weather_units)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    self.name,
-                    self.city,
-                    self.briefing_time,
-                    self.language,
-                    self.lang_code,
-                    self.news_sources,
-                    self.weather_units,
-                ),
-            )
-            conn.commit()
-        self.briefing_button.setEnabled(True)
-
-    def start_briefing(self):
-        self.process = subprocess.Popen([
-            sys.executable, 
-            "briefing_scheduler.py", 
-            str(self.briefing_time), 
-            str(self.city),
-            str(self.lang_code),
-            str(self.news_sources),
-            str(self.weather_units)
-        ])
-        print(f"Briefing shudeled for {self.briefing_time}")
-
-
-app = QApplication(sys.argv)
-
-app.setStyleSheet("""
-    QWidget {
-        background-color: #121212;
-        color: #ffffff;
-        font-family: 'Segoe UI', sans-serif;
-    }
-    QPushButton {
-      background-color: #1e88e5;
-      border: none;
-      border-radius: 5px;
-      padding: 10px 20px;
-      font-size: 14px;
-      min-width: 200px;
-    }
-    QPushButton:hover {
-        background-color: #1565c0;
-    }
-""")
-
+    def closeEvent(self, event):
+        self.stop_gesture(); self.stop_scheduler(); event.accept()
 
 def start_gui():
-    window = MainWindow()
-    window.show()
-    sys.exit(app.exec())
+    app = QApplication.instance() or QApplication(sys.argv)
+    app.setStyleSheet("QWidget { background:#121212; color:white; font-family:'Segoe UI'; } QPushButton { background:#1e88e5; border:0; border-radius:5px; padding:10px; } QPushButton:hover { background:#1565c0; } QLineEdit,QComboBox,QListWidget { background:#202020; border:1px solid #444; padding:5px; }")
+    window = MainWindow(); window.show(); app.exec()
 
-if __name__ == "__main__":
-    start_gui()
+if __name__ == "__main__": start_gui()
