@@ -1,26 +1,15 @@
 # FluffelNexus
 
-FluffelNexus is a Python desktop project that brings together two personal-computing features:
-
-- **Gesture control:** use a webcam and hand tracking to move the mouse, click, and scroll with hand gestures.
-- **Daily briefing:** prepare a Telegram message with weather information and current news articles for a selected city and preferred news sources.
-
-The project uses a PyQt6 desktop interface, MediaPipe/OpenCV for hand tracking, SQLite for settings, and external APIs for weather and news.
-
-> **Status:** Work in progress / prototype. Some settings and scheduling behavior still need refinement; see [Known limitations](#known-limitations).
+FluffelNexus is a Python desktop prototype combining webcam-based hand gesture control with a scheduled weather-and-news briefing delivered through Telegram.
 
 ## Features
 
-### Gesture control
-- Detects hand landmarks with MediaPipe.
-- Supports pointer movement, pinch-to-click, a second click gesture, and scrolling.
-- Can be started and stopped from the desktop GUI.
+- **Gesture control:** MediaPipe and OpenCV detect hand landmarks; PyAutoGUI translates supported gestures into pointer movement, clicks, and scrolling.
+- **Daily briefing:** Fetches current weather and news, formats a message, and sends it to a configured Telegram chat.
+- **Desktop GUI:** PyQt6 interface for settings, starting/stopping gesture control and managing the briefing scheduler.
+- **Local settings:** SQLite persistence for the selected name, city, time, language, sources, and units.
 
-### Daily briefing
-- Lets the user enter a name and city.
-- Offers a briefing-time selector, language selector, weather units, and selectable news sources.
-- Stores settings in a local SQLite database.
-- Builds a briefing with weather and news headlines and sends it through a Telegram bot.
+> **Status:** Work in progress. The code has been improved for scheduling, API error handling, settings persistence, and subprocess cleanup, but it has not been verified on every supported operating system or hardware configuration.
 
 ## Project structure
 
@@ -38,103 +27,121 @@ FluffelNexus/
 │   └── calander.py
 ├── vision/
 │   └── gesture_control.py
-└── db.db                 # Local SQLite database (should normally not be committed)
+└── db.db  # local settings database; normally keep out of Git
 ```
 
 ## Requirements
 
-- Python 3.10 or a compatible version supported by the installed MediaPipe and PyQt6 releases
-- A webcam for gesture control
-- A graphical desktop session
-- API credentials for the weather and news providers
-- A Telegram bot and chat ID for sending briefings
+- Python version compatible with the installed PyQt6 and MediaPipe packages (Python 3.10–3.12 is a reasonable starting point; verify package wheels for your OS).
+- Webcam and a graphical desktop session for gesture control.
+- OpenWeatherMap API key for weather data.
+- NewsAPI key for news articles.
+- Telegram bot token and chat ID to deliver briefings.
+- Internet access for external APIs and Telegram.
 
-Dependency compatibility can vary by operating system and Python version, particularly for MediaPipe, NumPy, and OpenCV.
+## Installation
 
-## Setup
+Clone the repository:
 
-1. Clone the repository and enter its directory:
+```bash
+git clone https://github.com/Flockemon24/FluffelNexus.git
+cd FluffelNexus
+```
 
-   ```bash
-   git clone https://github.com/Flockemon24/FluffelNexus.git
-   cd FluffelNexus
-   ```
+Create and activate a virtual environment.
 
-2. Create and activate a virtual environment:
+**Windows PowerShell**
+```powershell
+py -m venv .venv
+.venv\Scripts\Activate.ps1
+```
 
-   **Windows**
-   ```powershell
-   py -m venv .venv
-   .venv\Scripts\Activate.ps1
-   ```
+**Linux / macOS**
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
 
-   **Linux / macOS**
-   ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
-   ```
+Install dependencies:
 
-3. Install the dependencies:
+```bash
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
 
-   ```bash
-   python -m pip install --upgrade pip
-   pip install -r requirements.txt
-   ```
+Create a `.env` file in the repository root:
 
-4. Create a `.env` file in the project root. Add your own credentials:
+```dotenv
+WEATHER_API_KEY=your_openweathermap_api_key
+NEWS_API_KEY=your_newsapi_key
+TELEGRAM_TOKEN=your_telegram_bot_token
+TELEGRAM_CHAT_ID=your_telegram_chat_id
+```
 
-   ```dotenv
-   WEATHER_API_KEY=your_openweathermap_api_key
-   NEWS_API_KEY=your_newsapi_key
-   TELEGRAM_TOKEN=your_telegram_bot_token
-   TELEGRAM_CHAT_ID=your_telegram_chat_id
-   ```
+Use your own credentials. **Never commit real API keys, bot tokens, chat IDs, or other secrets.** Keep `.env` out of version control.
 
-   Never commit real API keys, bot tokens, or private chat IDs. Keep `.env` out of version control.
+Start the desktop app:
 
-5. Start the application:
-
-   ```bash
-   python main.py
-   ```
+```bash
+python main.py
+```
 
 ## Usage
 
 ### Gesture control
-1. Launch FluffelNexus.
-2. Select **Start Gesture Control**.
-3. Allow camera access if prompted.
-4. Use the supported hand gestures to control the pointer, click, or scroll.
-5. Select the button again to stop the gesture-control process.
 
-Gesture recognition and pointer control may need calibration for lighting, camera position, and hand size. The current implementation uses fixed distance thresholds.
+1. Click **Start Gesture Control** in the desktop app.
+2. Allow camera access if requested.
+3. Use the supported gestures:
+   - **Index finger pointing:** move the pointer.
+   - **Thumb + index pinch:** click once when the gesture begins.
+   - **Thumb + middle-finger pinch:** double-click when the gesture begins.
+   - **Index finger pointing down with other fingers folded:** scroll down.
+4. Press **Q** in the camera preview to quit, or use the GUI button to stop the process.
+
+Lighting, camera position, and gesture thresholds can affect detection. Test carefully before using gestures for actions where accidental clicks would be disruptive.
 
 ### Daily briefing
+
 1. Open **Show Settings**.
-2. Enter a city and select the language, units, briefing time, and news sources.
-3. Select **Save Settings**.
-4. Select **Start daily Briefing Scheduler**.
+2. Enter a name and city.
+3. Select a daily time, language, weather units, and at least one news source.
+4. Click **Save Settings**.
+5. Click **Start Daily Briefing Scheduler**.
 
-**Important:** The current scheduler implementation runs the briefing every minute rather than at the selected time. Do not rely on the selected briefing time until this is fixed. A Telegram bot must also be configured correctly before sending can work.
+The scheduler runs once per day at the selected local time while its process is running. It does not send a message immediately on startup. Keep the application/scheduler running for the scheduled time to be reached. If settings change while the scheduler is running, save them and restart the scheduler.
 
-## Configuration and data
+## Configuration notes
 
-- User settings are stored in the local SQLite database, `db.db`.
+- Settings are stored in `db.db` beside the application files.
 - API credentials are read from environment variables loaded from `.env`.
-- Weather and news data depend on the availability, quotas, and terms of the respective external APIs.
-- A network connection is required for online weather/news retrieval and Telegram delivery.
+- Weather units: `metric` (Celsius), `imperial` (Fahrenheit), or `standard` (Kelvin).
+- News sources are sent as a comma-separated list of domains.
+- The briefing may be incomplete if a provider is unavailable, credentials are missing, or API limits are reached.
 
 ## Known limitations
 
-- The scheduler process is not managed with a robust start/stop lifecycle, and repeated starts may create multiple processes.
-- Settings are saved to SQLite, but the GUI does not currently load the saved values back into the form at startup.
-- The weather request does not check HTTP errors or handle timeouts, and the briefing formats the temperature with a Celsius symbol even when imperial units are selected.
-- News and weather failures are handled minimally; clearer error messages and logging are needed.
-- The gesture-control preview window is disabled in the current code, and camera/MediaPipe resources should be cleaned up reliably on every exit path.
-- Gesture actions use fixed thresholds and may trigger repeated clicks or scrolls in some situations.
-- Dependency pins include overlapping OpenCV packages and should be tested as a compatible set on each target platform.
-- The database file contains local user data and is better generated locally than tracked in Git.
+- Gesture recognition is based on fixed thresholds and may need calibration for different cameras and users.
+- The scheduler runs as a separate process and needs to remain alive until the chosen time.
+- The current database stores one active settings profile; multi-user profile management is not implemented.
+- External API plans and availability may limit the number or freshness of news articles.
+- Dependency compatibility, camera permissions, and desktop behavior still need testing on each target OS.
+- Automated tests and continuous integration are not yet included.
+- `calander.py` is currently an empty placeholder.
+
+## Suggested next steps
+
+- Add automated tests for settings storage, message formatting, and scheduler argument validation.
+- Add application logging to a file and more visible scheduler status.
+- Add configurable gesture thresholds and a pause/safety mode.
+- Add a first-run setup wizard and configuration validation.
+- Test installation from a clean virtual environment on Windows and Linux.
+- Add a project license if you intend to accept contributions or distribute the software.
+
+## Contributing
+
+Bug reports and focused improvements are welcome. Do not include API credentials, personal information, or a populated local database in commits.
 
 ## License
 
-This project is Open-Source. Feel free to clone and use it wherever you want!
+No license is currently specified. Until a license is added, do not assume that reuse, redistribution, or contributions are covered by an open-source license.
