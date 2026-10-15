@@ -1,5 +1,9 @@
 # FluffelNexus
 
+<img width="585" height="1075" alt="Screenshot1" src="https://github.com/user-attachments/assets/220c481e-a2a3-4dbf-9100-4fdfc5b43630" />
+
+<img width="1650" height="1300" alt="Screenshot2" src="https://github.com/user-attachments/assets/0c6f7f49-6882-4010-b2f5-fd843ddaeb53" />
+
 FluffelNexus is a Python desktop prototype combining webcam-based hand gesture control with a scheduled weather-and-news briefing delivered through Telegram.
 
 ## Features
@@ -90,6 +94,8 @@ python main.py
 
 ### Gesture control
 
+<img width="1650" height="1300" alt="Screenshot2" src="https://github.com/user-attachments/assets/0c6f7f49-6882-4010-b2f5-fd843ddaeb53" />
+
 1. Click **Start Gesture Control** in the desktop app.
 2. Allow camera access if requested.
 3. Use the supported gestures:
@@ -127,16 +133,6 @@ The scheduler runs once per day at the selected local time while its process is 
 - External API plans and availability may limit the number or freshness of news articles.
 - Dependency compatibility, camera permissions, and desktop behavior still need testing on each target OS.
 - Automated tests and continuous integration are not yet included.
-- `calander.py` is currently an empty placeholder.
-
-## Suggested next steps
-
-- Add automated tests for settings storage, message formatting, and scheduler argument validation.
-- Add application logging to a file and more visible scheduler status.
-- Add configurable gesture thresholds and a pause/safety mode.
-- Add a first-run setup wizard and configuration validation.
-- Test installation from a clean virtual environment on Windows and Linux.
-- Add a project license if you intend to accept contributions or distribute the software.
 
 ## Contributing
 
