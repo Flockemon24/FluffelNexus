@@ -16,8 +16,7 @@ def run_daily_briefing(city="Berlin", language="de", news_sources="tagesschau.de
     time.sleep(1)
 
 if __name__ == '__main__':
-    # schedule.every().day.at(time_str).do(run_daily_briefing, city=city, language=language, news_sources=news_sources, unit=weather_unit)
-    schedule.every().minute.do(run_daily_briefing, city=city, language=language, news_sources=news_sources, unit=weather_unit)
+    schedule.every().day.at(time_str).do(run_daily_briefing, city=city, language=language, news_sources=news_sources, unit=weather_unit)
     while True:
         schedule.run_pending()
         time.sleep(5)

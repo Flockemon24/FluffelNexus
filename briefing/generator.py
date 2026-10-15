@@ -16,9 +16,9 @@ def generate_message(city="Berlin", language="de", sources="tagesschau.de", unit
         "Good morning Boss ☀️!\n\n"
         f"Here is your daily brifing:\n\n"
         f"--- Weather in {city} ---\n"
-        f"Current temperature: {temperature}°C\n"
-        f"Maximum temperature for today: {max_temperature}°C\n"
-        f"Minimum temperature for today: {min_temperature}°C\n\n"
+        f"Current temperature: {temperature}\n"
+        f"Maximum temperature for today: {max_temperature}\n"
+        f"Minimum temperature for today: {min_temperature}\n\n"
         "--- Current News ---\n"
     )
     for art in news_articles:
