@@ -218,3 +218,15 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# FluffelNexus local configuration and runtime data
+.env
+.env.*
+!.env.example
+db.db
+*.db-journal
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+logs/
