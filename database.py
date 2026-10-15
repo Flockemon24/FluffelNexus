@@ -12,7 +12,8 @@ def init_db():
             city TEXT NOT NULL,
             briefing_time TEXT NOT NULL, 
             language TEXT NOT NULL,
-            news_sources TEXT,
+            lang_code TEXT NOT NULL,
+            news_sources TEXT NOT NULL,
             weather_units TEXT NOT NULL
         )
     ''')

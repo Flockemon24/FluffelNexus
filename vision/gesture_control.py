@@ -36,19 +36,27 @@ while cap.isOpened():
             pinky_tip = hand_landmarks.landmark[20]
             pinky_pip = hand_landmarks.landmark[18]
 
-            # --- EXAMPLE 1: Pinch (Thumb + Index Finger) ---
+            # --- Pinch (Thumb + Index Finger) ---
             distance_pinch = ((thumb_tip.x - index_tip.x) ** 2 + (thumb_tip.y - index_tip.y) ** 2) ** 0.5
-            
-            # --- EXAMPLE 2: Index Finger stretched ---
-            is_index_open = index_tip.y < index_pip.y
-            
-            # --- EXAMPLE 3: Distance from Thumb to middle finger ---
+
+            # --- Index pointing down ---
+            index_pointing_down = index_tip.y > index_pip.y
+
+            # --- Distance from Thumb to middle finger ---
             distance_middle = ((thumb_tip.x - middle_tip.x) ** 2 + (thumb_tip.y - middle_tip.y) ** 2) ** 0.5
 
-            # --- EXAMPLE 4: Open hand ---
+            # --- Open hand ---
             is_middle_open = middle_tip.y < middle_pip.y
             is_ring_open = ring_tip.y < ring_pip.y
             is_pinky_open = pinky_tip.y < pinky_pip.y
+            is_index_open = index_tip.y < index_pip.y
+
+            # --- Closed hand ---
+            index_closed = index_tip.y > index_pip.y
+            middle_closed = middle_tip.y > middle_pip.y
+            ring_closed = ring_tip.y > ring_pip.y
+            pinky_closed = pinky_tip.y > pinky_pip.y
+
 
             if is_index_open and is_middle_open and is_ring_open and is_pinky_open:
                 label = 'Open Hand'
@@ -62,9 +70,13 @@ while cap.isOpened():
                 pyautogui.click()
                 pyautogui.click()
                 time.sleep(1)
-            elif is_index_open:
+            elif is_index_open and middle_closed and ring_closed and pinky_closed:
                 label = 'Index Finger stretched'
                 pyautogui.moveTo(int(index_tip.x * screen_width), int(index_tip.y * screen_height), duration=0.15)
+            elif index_pointing_down:
+                label = 'Scralling down'
+                pyautogui.scroll(-50)
+                time.sleep(0.025)
             else:
                 label = 'Closed Hand'
                 
