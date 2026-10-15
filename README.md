@@ -126,7 +126,6 @@ Gesture recognition and pointer control may need calibration for lighting, camer
 
 ## Known limitations
 
-- The scheduler currently uses a one-minute interval instead of the selected daily time.
 - The scheduler process is not managed with a robust start/stop lifecycle, and repeated starts may create multiple processes.
 - Settings are saved to SQLite, but the GUI does not currently load the saved values back into the form at startup.
 - The weather request does not check HTTP errors or handle timeouts, and the briefing formats the temperature with a Celsius symbol even when imperial units are selected.
@@ -136,20 +135,6 @@ Gesture recognition and pointer control may need calibration for lighting, camer
 - Dependency pins include overlapping OpenCV packages and should be tested as a compatible set on each target platform.
 - The database file contains local user data and is better generated locally than tracked in Git.
 
-## Roadmap ideas
-
-- Fix daily scheduling and add clear start/stop status for the scheduler.
-- Load saved settings into the GUI and validate required fields.
-- Add timeouts, HTTP status checks, and friendly error reporting for API calls.
-- Correct temperature-unit formatting and test language selection end to end.
-- Add a visible camera preview, gesture calibration, and safer click debouncing.
-- Add automated tests for configuration, message generation, and database operations.
-- Document supported Python/OS combinations and add screenshots or a short demo.
-
-## Contributing
-
-This is an evolving personal project. Issues, bug reports, and focused improvements are welcome. Please do not include credentials, personal data, or a populated local database in commits.
-
 ## License
 
-No license is currently specified in the repository. Until a license is added, reuse, redistribution, and contributions should not be assumed to be covered by an open-source license.
+This project is Open-Source. Feel free to clone and use it wherever you want!
