@@ -25,6 +25,8 @@ def save_settings(settings):
     with sqlite3.connect(DB_PATH) as conn:
         row = conn.execute("SELECT id FROM user ORDER BY id DESC LIMIT 1").fetchone()
         if row:
+            # This GUI maintains one active profile; remove legacy extra rows before updating it.
+            conn.execute("DELETE FROM user WHERE id != ?", (row[0],))
             conn.execute("UPDATE user SET name=?, city=?, briefing_time=?, language=?, lang_code=?, news_sources=?, weather_units=? WHERE id=?", (*values, row[0]))
         else:
             conn.execute("INSERT INTO user (name, city, briefing_time, language, lang_code, news_sources, weather_units) VALUES (?, ?, ?, ?, ?, ?, ?)", values)
