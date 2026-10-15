@@ -1,39 +1,24 @@
-import requests
+"""NewsAPI helper with timeouts and graceful failures."""
 import os
+import requests
+URL = "https://newsapi.org/v2/everything"
+DEFAULT_DOMAINS = "spiegel.de,tagesschau.de,zeit.de,welt.de,faz.net,sueddeutsche.de,focus.de"
 
-def get_current_news(pageSize=5, sortBy="popularity", language="de", domains="spiegel.de,tagesschau.de,zeit.de,welt.de,faz.net,sueddeutsche.de,focus.de"):
-    NEWS_API_KEY = os.getenv("NEWS_API_KEY")
-    
-    if not NEWS_API_KEY:
-        print("Error: No API-Key found.")
+def get_current_news(pageSize=5, sortBy="publishedAt", language="de", domains=DEFAULT_DOMAINS):
+    key = os.getenv("NEWS_API_KEY")
+    if not key:
+        print("News unavailable: NEWS_API_KEY is not set.")
         return []
-
-    # Wir nutzen den /everything-Endpunkt und suchen nach aktuellen Top-Themen
-    url = "https://newsapi.org/v2/everything"
-    
-    params = {
-        # q ist bei /everything zwingend erforderlich. 
-        # Durch den Platzhalter '*' suchen wir nach ALLEN Artikeln der Top-Quellen.
-        'q': '*', 
-
-        # Hier definierst du, welche großen deutschen Medien abgefragt werden:
-        'domains': domains,
-
-        'language': language,
-        'sortBy': sortBy, # Oder 'publishedAt' für die neuesten Artikel
-        'pageSize': pageSize,
-        'apiKey': NEWS_API_KEY
-    }
-    
-    response = requests.get(url, params=params)
-    
-    if response.status_code == 200:
-        news_data = response.json()
-        articles = news_data.get("articles", [])
-        
-        for idx, art in enumerate(articles, 1):
-            print(f"[{idx}] {art['title']} ({art['source']['name']})")
-        return articles
-    else:
-        print(f"Error: {response.status_code} - {response.text}")
+    if sortBy not in {"relevancy", "popularity", "publishedAt"}:
+        sortBy = "publishedAt"
+    try:
+        response = requests.get(URL, params={"domains": domains or DEFAULT_DOMAINS, "language": language, "sortBy": sortBy, "pageSize": max(1, min(int(pageSize), 100)), "apiKey": key}, timeout=12)
+        response.raise_for_status()
+        data = response.json()
+        if data.get("status") != "ok":
+            print("News API error:", data.get("message", "Unknown error"))
+            return []
+        return [a for a in data.get("articles", []) if a.get("title") and a.get("url")]
+    except (requests.RequestException, ValueError) as exc:
+        print(f"Could not retrieve news: {exc}")
         return []
