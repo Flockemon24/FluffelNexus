@@ -22,7 +22,7 @@ class MainWindow(QMainWindow):
         self.settings = QWidget(); form = QVBoxLayout(self.settings)
         form.addWidget(QLabel("Name:")); self.name_input = QLineEdit(); form.addWidget(self.name_input)
         form.addWidget(QLabel("City:")); self.city_input = QLineEdit(); form.addWidget(self.city_input)
-        form.addWidget(QLabel("Daily briefing time:")); self.time_box = QComboBox(); self.time_box.addItems(["06:30","07:00","07:30","08:00","18:38"]); form.addWidget(self.time_box)
+        form.addWidget(QLabel("Daily briefing time:")); self.time_box = QComboBox(); self.time_box.addItems(["06:30","07:00","07:30","08:00","08:30"]); form.addWidget(self.time_box)
         form.addWidget(QLabel("News language:")); self.language_box = QComboBox(); self.language_box.addItem("Deutsch","de"); self.language_box.addItem("English","en"); form.addWidget(self.language_box)
         form.addWidget(QLabel("Weather units:")); self.units_box = QComboBox(); self.units_box.addItem("Metric (°C)","metric"); self.units_box.addItem("Imperial (°F)","imperial"); self.units_box.addItem("Standard (K)","standard"); form.addWidget(self.units_box)
         form.addWidget(QLabel("News sources:")); self.sources = QListWidget(); self.sources.setMaximumHeight(130)
